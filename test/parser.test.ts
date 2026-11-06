@@ -37,6 +37,11 @@ test("parseDateSafe handles ISO and European date formats", () => {
   assert.equal(d2.getMonth(), 5);
   assert.equal(d2.getDate(), 1);
   assert.equal(d2.getHours(), 14);
+
+  const d3 = parseDateSafe("01.06.2026 14:30");
+  assert.equal(d3.getFullYear(), 2026);
+  assert.equal(d3.getMonth(), 5);
+  assert.equal(d3.getDate(), 1);
 });
 
 test("splitCsvLine respects quotes", () => {
@@ -66,4 +71,32 @@ test("ingestCsvRecords correctly aligns consumption and generation datasets", ()
   assert.equal(aligned[0]!.generationKWh, 4.0);
   assert.equal(aligned[1]!.consumptionKWh, 2.0);
   assert.equal(aligned[1]!.generationKWh, 3.5);
+});
+
+test("ingestCsvRecords converts Watts and Wh to kWh correctly", () => {
+  // Shelly 15-minute format with Power in Watts
+  const shellyCsv = `Date/time UTC,Channel A Power (W)
+2026-06-01 10:00:00,400
+2026-06-01 10:15:00,800`;
+
+  const aligned = ingestCsvRecords(shellyCsv);
+  assert.equal(aligned.length, 2);
+  assert.equal(aligned[0]!.intervalMinutes, 15);
+  // 400 W for 15 minutes = 0.4 kW * 0.25h = 0.1 kWh
+  assert.equal(aligned[0]!.consumptionKWh, 0.1);
+  // 800 W for 15 minutes = 0.8 kW * 0.25h = 0.2 kWh
+  assert.equal(aligned[1]!.consumptionKWh, 0.2);
+});
+
+test("ingestCsvRecords handles Italian Portale Consumi split Date and Time columns", () => {
+  const portaleCsv = `Giorno;Ora;Energia Attiva F1
+01/06/2026;10:00;0,45
+01/06/2026;10:15;0,55`;
+
+  const aligned = ingestCsvRecords(portaleCsv);
+  assert.equal(aligned.length, 2);
+  assert.equal(aligned[0]!.date.getHours(), 10);
+  assert.equal(aligned[0]!.date.getMinutes(), 0);
+  assert.equal(aligned[0]!.consumptionKWh, 0.45);
+  assert.equal(aligned[1]!.consumptionKWh, 0.55);
 });

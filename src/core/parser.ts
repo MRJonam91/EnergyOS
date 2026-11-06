@@ -46,8 +46,8 @@ export function parseDateSafe(val: string): Date {
     return new Date(str.length === 10 ? n * 1000 : n);
   }
 
-  // European format: DD/MM/YYYY or DD-MM-YYYY [HH:mm[:ss]]
-  const euMatch = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  // European format: DD/MM/YYYY, DD-MM-YYYY or DD.MM.YYYY [HH:mm[:ss]]
+  const euMatch = str.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
   if (euMatch && euMatch[1] && euMatch[2] && euMatch[3]) {
     const day = parseInt(euMatch[1], 10);
     const month = parseInt(euMatch[2], 10) - 1;
@@ -140,6 +140,24 @@ export function identifyColumns(headers: string[], allowFallback = true): {
   return { timestampKey, consumptionKey, generationKey };
 }
 
+/** Detects physical unit from column header name */
+export function detectColumnUnit(headerName?: string): "kwh" | "wh" | "kw" | "w" {
+  if (!headerName) return "kwh";
+  const low = headerName.toLowerCase();
+  if (low.includes("kwh")) return "kwh";
+  if (low.includes("wh")) return "wh";
+  if (low.includes("kw") || low.includes("potenza")) return "kw";
+  if (low.includes("power") || low.includes("(w)") || low.includes("[w]")) return "w";
+  return "kwh";
+}
+
+function convertRawToKWh(rawVal: number, unit: "kwh" | "wh" | "kw" | "w", intervalMinutes: number): number {
+  if (unit === "wh") return rawVal / 1000;
+  if (unit === "w") return (rawVal / 1000) * (intervalMinutes / 60);
+  if (unit === "kw") return rawVal * (intervalMinutes / 60);
+  return rawVal;
+}
+
 /** Ingests single or paired CSV streams and normalizes into AlignedRecords */
 export function ingestCsvRecords(
   consumptionCsv: string,
@@ -151,48 +169,29 @@ export function ingestCsvRecords(
   const headers = Object.keys(consRows[0]!);
   const cols = identifyColumns(headers);
 
-  const parsedConsumption: Array<{ date: Date; kwh: number }> = [];
-  const parsedDirectGeneration: Array<{ date: Date; kwh: number }> = [];
+  const consUnit = detectColumnUnit(cols.consumptionKey);
+  const genUnit = detectColumnUnit(cols.generationKey);
+
+  const parsedConsumption: Array<{ date: Date; rawVal: number }> = [];
+  const parsedDirectGeneration: Array<{ date: Date; rawVal: number }> = [];
 
   for (const row of consRows) {
-    const timeVal = row[cols.timestampKey];
+    let timeVal = row[cols.timestampKey];
     if (!timeVal) continue;
+    if (row["Ora"]) timeVal = `${timeVal} ${row["Ora"]}`;
+    else if (row["ora"]) timeVal = `${timeVal} ${row["ora"]}`;
+
     try {
       const date = parseDateSafe(timeVal);
       const consVal = cols.consumptionKey ? parseNumberSafe(row[cols.consumptionKey]) : 0;
-      parsedConsumption.push({ date, kwh: Math.max(0, consVal) });
+      parsedConsumption.push({ date, rawVal: Math.max(0, consVal) });
 
       if (cols.generationKey && row[cols.generationKey]) {
         const genVal = parseNumberSafe(row[cols.generationKey]);
-        parsedDirectGeneration.push({ date, kwh: Math.max(0, genVal) });
+        parsedDirectGeneration.push({ date, rawVal: Math.max(0, genVal) });
       }
     } catch {
       // Ignore unparseable line
-    }
-  }
-
-  let genMap = new Map<number, number>();
-  if (generationCsv) {
-    const genRows = parseCsvContent(generationCsv);
-    if (genRows.length > 0) {
-      const gHeaders = Object.keys(genRows[0]!);
-      const gCols = identifyColumns(gHeaders);
-      const valKey = gCols.generationKey ?? gCols.consumptionKey ?? gHeaders[1]!;
-      for (const row of genRows) {
-        const timeVal = row[gCols.timestampKey];
-        if (!timeVal) continue;
-        try {
-          const date = parseDateSafe(timeVal);
-          const val = parseNumberSafe(row[valKey]);
-          genMap.set(date.getTime(), Math.max(0, val));
-        } catch {
-          // Ignore
-        }
-      }
-    }
-  } else if (parsedDirectGeneration.length > 0) {
-    for (const g of parsedDirectGeneration) {
-      genMap.set(g.date.getTime(), g.kwh);
     }
   }
 
@@ -210,6 +209,36 @@ export function ingestCsvRecords(
     if (diffs.length > 0) {
       diffs.sort((a, b) => a - b);
       intervalMinutes = diffs[Math.floor(diffs.length / 2)]!;
+    }
+  }
+
+  const genMap = new Map<number, number>();
+  if (generationCsv) {
+    const genRows = parseCsvContent(generationCsv);
+    if (genRows.length > 0) {
+      const gHeaders = Object.keys(genRows[0]!);
+      const gCols = identifyColumns(gHeaders);
+      const valKey = gCols.generationKey ?? gCols.consumptionKey ?? gHeaders[1]!;
+      const extGenUnit = detectColumnUnit(valKey);
+      for (const row of genRows) {
+        let timeVal = row[gCols.timestampKey];
+        if (!timeVal) continue;
+        if (row["Ora"]) timeVal = `${timeVal} ${row["Ora"]}`;
+        else if (row["ora"]) timeVal = `${timeVal} ${row["ora"]}`;
+        try {
+          const date = parseDateSafe(timeVal);
+          const raw = parseNumberSafe(row[valKey]);
+          const kwh = convertRawToKWh(Math.max(0, raw), extGenUnit, intervalMinutes);
+          genMap.set(date.getTime(), kwh);
+        } catch {
+          // Ignore
+        }
+      }
+    }
+  } else if (parsedDirectGeneration.length > 0) {
+    for (const g of parsedDirectGeneration) {
+      const kwh = convertRawToKWh(g.rawVal, genUnit, intervalMinutes);
+      genMap.set(g.date.getTime(), kwh);
     }
   }
 
@@ -231,7 +260,7 @@ export function ingestCsvRecords(
       timestamp: c.date.toISOString(),
       epochMs: epoch,
       date: c.date,
-      consumptionKWh: c.kwh,
+      consumptionKWh: convertRawToKWh(c.rawVal, consUnit, intervalMinutes),
       generationKWh: genVal ?? 0,
       intervalMinutes
     });

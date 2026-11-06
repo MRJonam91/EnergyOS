@@ -309,7 +309,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
 
   let cerResult = undefined;
   if (isCer) {
-    cerResult = evaluateCerIncentives(intervals, 1.8);
+    const cerLoadIdx = argv.indexOf("--community-load") !== -1 ? argv.indexOf("--community-load") : argv.indexOf("--cer-load");
+    const cerLoad = cerLoadIdx !== -1 && argv[cerLoadIdx + 1] ? parseFloat(argv[cerLoadIdx + 1]!) : 1.8;
+    cerResult = evaluateCerIncentives(intervals, cerLoad);
   }
 
   let flexReport = undefined;
@@ -319,7 +321,10 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
 
   let billResult = undefined;
   if (isBill) {
-    billResult = computeItalianBill(summary, tariff);
+    const powerIdx = argv.indexOf("--power");
+    const committedPower = powerIdx !== -1 && argv[powerIdx + 1] ? parseFloat(argv[powerIdx + 1]!) : 3.0;
+    const isResident = !argv.includes("--non-resident");
+    billResult = computeItalianBill(summary, tariff, { committedPowerKW: committedPower, isResident });
   }
 
   if (exportCsvPath) {
