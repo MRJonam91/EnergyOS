@@ -1,6 +1,6 @@
 {
   "name": "energyos",
-  "version": "1.2.0-beta",
+  "version": "1.0.0",
   "description": "Local-first home energy intelligence: reconciles smart meter consumption and solar PV generation CSVs against ARERA multi-hour tariffs (F1/F2/F3) to compute observed costs, self-consumption rates, and true financial savings.",
   "type": "module",
   "license": "AGPL-3.0-only",

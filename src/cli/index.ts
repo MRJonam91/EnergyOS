@@ -26,7 +26,7 @@ import {
   renderTerminalReport
 } from "../report/terminal.ts";
 
-const VERSION = "1.2.0-beta";
+const VERSION = "1.0.0";
 const SPONSOR_URL = "https://github.com/sponsors/MRJonam91";
 
 function printHelp(): void {
