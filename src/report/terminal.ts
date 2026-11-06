@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Manoj Rollo (MRJonam91)
 
-import type { EnergyAuditSummary } from "../core/types.ts";
+import type { BatterySimulationResult, BatterySizingOption, CsvDiagnostics, EnergyAuditSummary } from "../core/types.ts";
 
 /** Generates a visual ASCII/Unicode progress gauge */
 export function renderGauge(pct: number, width = 20): string {
@@ -79,5 +79,73 @@ export function renderTerminalReport(summary: EnergyAuditSummary, showSponsor = 
     lines.push("♥ Ti piace EnergyOS? Sostieni lo sviluppo indipendente: https://github.com/sponsors/MRJonam91");
   }
 
+  return lines.join("\n");
+}
+
+/** Renders terminal report for battery storage simulation */
+export function renderBatteryReport(sim: BatterySimulationResult, sizingOptions?: BatterySizingOption[]): string {
+  const lines: string[] = [];
+  const sep = "─".repeat(68);
+  lines.push("┌" + sep + "┐");
+  lines.push(`│  🔋 EnergyOS — Battery Storage System (BSS) Simulation              │`);
+  lines.push(`│  Capacity: ${sim.capacityKWh.toFixed(1)} kWh nominal (${sim.usableCapacityKWh.toFixed(1)} kWh usable) | Round-Trip: ${(sim.roundTripEfficiency * 100).toFixed(0)}% │`.padEnd(69) + "│");
+  lines.push("├" + sep + "┤");
+
+  lines.push("│  SIMULATED SELF-SUFFICIENCY & IMPACT                               │");
+  lines.push(`│  • Self-Sufficiency Boost: ${sim.initialSelfSufficiencyPct.toFixed(1)}% ──▶ ${sim.simulatedSelfSufficiencyPct.toFixed(1)}% (+${(sim.simulatedSelfSufficiencyPct - sim.initialSelfSufficiencyPct).toFixed(1)}%)`.padEnd(69) + "│");
+  lines.push(`│  • Self-Consumption Boost: ${sim.initialSelfConsumptionPct.toFixed(1)}% ──▶ ${sim.simulatedSelfConsumptionPct.toFixed(1)}% (+${(sim.simulatedSelfConsumptionPct - sim.initialSelfConsumptionPct).toFixed(1)}%)`.padEnd(69) + "│");
+  lines.push(`│  • Additional Stored Energy: ${formatKWh(sim.totalDischargedKWh).padStart(10)} directly supplied to home`.padEnd(69) + "│");
+  lines.push(`│  • Avoided Grid Import:      ${formatKWh(sim.avoidedGridImportKWh).padStart(10)} withdrawn less from grid`.padEnd(69) + "│");
+  lines.push(`│  • Equivalent Full Cycles:   ${sim.equivalentFullCycles.toFixed(1)} cycles (Avg SoC: ${sim.averageSocPct.toFixed(1)}%)`.padEnd(69) + "│");
+  lines.push("├" + sep + "┤");
+
+  lines.push("│  FINANCIAL GAIN FROM STORAGE                                       │");
+  lines.push(`│  • Additional Net Savings:   +${formatCurrency(sim.additionalFinancialSavings).padStart(9)} (period delta)`.padEnd(69) + "│");
+
+  if (sizingOptions && sizingOptions.length > 0) {
+    lines.push("├" + sep + "┤");
+    lines.push("│  BATTERY SIZING RECOMMENDATIONS                                    │");
+    lines.push("│  Cap. (kWh)   Self-Suff.   Annual Est.    Cycles/yr   Recommendation│");
+    lines.push("│  ──────────   ──────────   ───────────    ─────────   ──────────────│");
+    for (const opt of sizingOptions) {
+      const capCol = (opt.capacityKWh.toFixed(1) + " kWh").padEnd(10);
+      const suffCol = (opt.selfSufficiencyPct.toFixed(1) + "%").padEnd(10);
+      const savCol = (formatCurrency(opt.annualSavingsEstimate) + "/yr").padEnd(11);
+      const cycCol = (opt.equivalentCyclesPerYear + " cyc").padEnd(9);
+      const tag = opt.recommended ? "★ SWEET SPOT" : "";
+      lines.push(`│  ${capCol}   ${suffCol}   ${savCol}    ${cycCol}   ${tag.padEnd(14)}│`);
+    }
+  }
+
+  lines.push("└" + sep + "┘");
+  return lines.join("\n");
+}
+
+/** Renders terminal diagnostic report for a CSV telemetry file */
+export function renderDiagnosticsReport(diag: CsvDiagnostics): string {
+  const lines: string[] = [];
+  const sep = "─".repeat(68);
+  lines.push("┌" + sep + "┐");
+  lines.push(`│  🩺 EnergyOS — Telemetry Pre-Flight & Diagnostics                  │`);
+  lines.push(`│  Status: ${diag.isValid ? "✔ VALID DATASET" : "✖ ISSUES DETECTED"} | Preset: ${diag.detectedPreset}`.padEnd(69) + "│");
+  lines.push("├" + sep + "┤");
+  lines.push(`│  • Detected Delimiter:      "${diag.delimiter}"`.padEnd(69) + "│");
+  lines.push(`│  • Row Count:               ${diag.rowCount} records`.padEnd(69) + "│");
+  lines.push(`│  • Recognized Columns:`.padEnd(69) + "│");
+  lines.push(`│    - Timestamp:             ${diag.recognizedColumns.timestamp || "[NONE]"}`.padEnd(69) + "│");
+  lines.push(`│    - Consumption:           ${diag.recognizedColumns.consumption || "[NONE]"}`.padEnd(69) + "│");
+  lines.push(`│    - Generation:            ${diag.recognizedColumns.generation || "[NONE]"}`.padEnd(69) + "│");
+  lines.push(`│  • Sampling Interval:       ${diag.samplingIntervalMinutes} minutes`.padEnd(69) + "│");
+  lines.push(`│  • Date Range:              ${diag.dateRange.start.slice(0, 16)} → ${diag.dateRange.end.slice(0, 16)} (${diag.dateRange.durationHours}h)`.padEnd(69) + "│");
+
+  if (diag.warnings.length > 0) {
+    lines.push("├" + sep + "┤");
+    lines.push("│  ⚠ WARNINGS & ADVISORIES:                                          │");
+    for (const w of diag.warnings) {
+      lines.push(`│  - ${w.slice(0, 63).padEnd(65)}│`);
+    }
+  }
+
+  lines.push("└" + sep + "┘");
   return lines.join("\n");
 }

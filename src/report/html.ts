@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Manoj Rollo (MRJonam91)
 
-import type { EnergyAuditSummary } from "../core/types.ts";
+import type { BatterySimulationResult, EnergyAuditSummary } from "../core/types.ts";
 
 /** Generates responsive SVG for 24-hour profile */
 function renderHourlyProfileSvg(profile: EnergyAuditSummary["hourlyAverageProfile"]): string {
@@ -24,7 +24,6 @@ function renderHourlyProfileSvg(profile: EnergyAuditSummary["hourlyAverageProfil
   const pointsGen = profile.map((p) => `${getX(p.hour).toFixed(1)},${getY(p.avgGenerationKWh).toFixed(1)}`).join(" ");
   const pointsSc = profile.map((p) => `${getX(p.hour).toFixed(1)},${getY(p.avgSelfConsumptionKWh).toFixed(1)}`).join(" ");
 
-  // Solar area under curve
   const areaGen = `${getX(0)},${getY(0)} ` + pointsGen + ` ${getX(23)},${getY(0)}`;
 
   let xLabels = "";
@@ -97,7 +96,10 @@ function renderBandComparisonSvg(byBand: EnergyAuditSummary["byBand"]): string {
 }
 
 /** Generates complete standalone HTML report */
-export function generateHtmlReport(summary: EnergyAuditSummary): string {
+export function generateHtmlReport(
+  summary: EnergyAuditSummary,
+  batteryResult?: BatterySimulationResult
+): string {
   const profileSvg = renderHourlyProfileSvg(summary.hourlyAverageProfile);
   const bandSvg = renderBandComparisonSvg(summary.byBand);
 
@@ -116,6 +118,38 @@ export function generateHtmlReport(summary: EnergyAuditSummary): string {
     </tr>`
     )
     .join("");
+
+  const batterySection = batteryResult
+    ? `
+    <div class="battery-card">
+      <div class="battery-header">
+        <h2>🔋 Simulazione Sistema di Accumulo (BSS) — ${batteryResult.capacityKWh} kWh</h2>
+        <span class="battery-tag">Autonomia Elettrica Estesa</span>
+      </div>
+      <div class="cards-grid" style="margin-top: 1rem;">
+        <div class="card">
+          <div class="card-label">Autosufficienza con Batteria</div>
+          <div class="card-val val-success">${batteryResult.simulatedSelfSufficiencyPct}%</div>
+          <div class="card-sub">Da ${batteryResult.initialSelfSufficiencyPct}% iniziale (+${(batteryResult.simulatedSelfSufficiencyPct - batteryResult.initialSelfSufficiencyPct).toFixed(1)}%)</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Energia Erogata da Batteria</div>
+          <div class="card-val val-solar">${batteryResult.totalDischargedKWh.toFixed(1)} kWh</div>
+          <div class="card-sub">${batteryResult.equivalentFullCycles} cicli completi equivalenti</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Prelievo Rete Evitato</div>
+          <div class="card-val val-primary">${batteryResult.avoidedGridImportKWh.toFixed(1)} kWh</div>
+          <div class="card-sub">Residuo da rete: ${batteryResult.residualGridImportKWh.toFixed(1)} kWh</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Extra Risparmio Economico</div>
+          <div class="card-val val-savings">+€${batteryResult.additionalFinancialSavings.toFixed(2)}</div>
+          <div class="card-sub">Guadagno netto addizionale nel periodo</div>
+        </div>
+      </div>
+    </div>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="it">
@@ -156,6 +190,11 @@ export function generateHtmlReport(summary: EnergyAuditSummary): string {
     .val-savings { color: var(--success); }
     .val-solar { color: var(--solar); }
     .val-primary { color: var(--primary); }
+    .val-success { color: #059669; }
+    .battery-card { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 1.5rem; margin-bottom: 2rem; }
+    .battery-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+    .battery-header h2 { font-size: 1.25rem; color: #166534; font-weight: 700; }
+    .battery-tag { background: #dcfce7; color: #15803d; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; }
     .charts-row { display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; margin-bottom: 2rem; }
     @media (max-width: 860px) { .charts-row { grid-template-columns: 1fr; } }
     .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
@@ -214,6 +253,8 @@ export function generateHtmlReport(summary: EnergyAuditSummary): string {
         <div class="card-sub">-${summary.financial.savingsPct}% rispetto al costo senza fotovoltaico (€${summary.financial.baselineCostWithoutSolar.toFixed(2)})</div>
       </div>
     </div>
+
+    ${batterySection}
 
     <div class="charts-row">
       <div class="chart-card">

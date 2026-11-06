@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Manoj Rollo (MRJonam91)
 
+import { createServer } from "node:http";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,11 +10,13 @@ import { resolveAreraBand, isItalianNationalHoliday } from "../core/bands.ts";
 import { DEFAULT_ARERA_TARIFF, ENERGYOS_NAMESPACE } from "../core/constants.ts";
 import { ingestCsvRecords, parseTariffConfig } from "../core/parser.ts";
 import { reconcileEnergyFlows } from "../core/reconciler.ts";
+import { simulateBatteryStorage, recommendOptimalBatterySizes } from "../core/battery.ts";
+import { diagnoseEnergyCsv } from "../core/validator.ts";
 import type { AlignedRecord, TariffConfig } from "../core/types.ts";
 import { generateHtmlReport } from "../report/html.ts";
-import { renderTerminalReport } from "../report/terminal.ts";
+import { renderBatteryReport, renderDiagnosticsReport, renderTerminalReport } from "../report/terminal.ts";
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0-alpha";
 const SPONSOR_URL = "https://github.com/sponsors/MRJonam91";
 
 function printHelp(): void {
@@ -23,30 +26,40 @@ Open-source, local-first energy intelligence for smart meters and solar PV.
 
 USAGE:
   energyos compare --consumption <file.csv> [options]
+  energyos battery --capacity <kWh> --consumption <file.csv> [options]
   energyos demo [options]
+  energyos doctor <file.csv>
+  energyos serve [--port 3000]
   energyos bands [datetime]
   energyos sponsor
   energyos --help | --version
 
 COMMANDS:
   compare       Reconcile consumption and generation CSV files against ARERA tariffs
+  battery       Simulate battery storage (BSS) self-sufficiency & sizing curve
   demo          Run a realistic 7-day domestic simulation (6kW PV + heat pump)
+  doctor        Pre-flight diagnostics & health check for energy telemetry CSV
+  serve         Launch zero-dependency local browser preview server on localhost
   bands         Evaluate the ARERA time band (F1, F2, F3) for a given date/time
   sponsor       Display project support & donation links
 
 OPTIONS:
   -c, --consumption <path>  Path to consumption CSV (smart meter / 2G meter)
   -g, --generation <path>   Path to solar generation CSV (inverter telemetry)
+  -b, --battery <kWh>       Nominal battery storage capacity to simulate
   -t, --tariff <path>       Path to custom tariff JSON (defaults to ARERA 2026)
   -o, --html <path>         Export interactive standalone HTML report
+  -p, --port <number>       Port for local preview server (default: 3000)
   --json                    Output pure JSON for pipelines and automation
   -h, --help                Show this help message
   -v, --version             Show CLI version
 
 EXAMPLES:
   energyos compare -c examples/sample-consumption.csv -g examples/sample-generation.csv
-  energyos demo --html report.html
-  energyos bands "2026-11-06 14:30:00"
+  energyos battery --capacity 10 -c examples/sample-consumption.csv -g examples/sample-generation.csv
+  energyos demo --battery 5 --html report.html
+  energyos doctor examples/sample-consumption.csv
+  energyos serve --port 3000
 
 SPONSOR & DONATIONS:
   Independent open-source development: ${SPONSOR_URL}
@@ -72,7 +85,7 @@ export function generateDemoSimulation(): AlignedRecord[] {
     if (hour >= 19 && hour < 22) powerKW += isWeekend ? 2.8 : 2.2;
     // Heat pump cycling
     if (hour >= 5 && hour < 8) powerKW += 0.9;
-    // Random fluctuation
+    // Fluctuation
     powerKW += Math.sin(i * 0.1) * 0.15;
     powerKW = Math.max(0.2, powerKW);
 
@@ -85,8 +98,8 @@ export function generateDemoSimulation(): AlignedRecord[] {
     }
 
     // Convert kW to 15-minute kWh (power * 0.25h)
-    const consumptionKWh = Math.round((powerKW * 0.25) * 1000) / 1000;
-    const generationKWh = Math.round((solarKW * 0.25) * 1000) / 1000;
+    const consumptionKWh = Math.round(powerKW * 0.25 * 1000) / 1000;
+    const generationKWh = Math.round(solarKW * 0.25 * 1000) / 1000;
 
     records.push({
       timestamp: current.toISOString(),
@@ -125,6 +138,47 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     return;
   }
 
+  if (command === "doctor") {
+    const filePath = argv[1];
+    if (!filePath) {
+      console.error("Errore: specifica il file CSV da analizzare con 'energyos doctor <file.csv>'");
+      process.exit(1);
+    }
+    try {
+      const content = readFileSync(filePath, "utf-8");
+      const diag = diagnoseEnergyCsv(content);
+      if (argv.includes("--json")) {
+        console.log(JSON.stringify(diag, null, 2));
+      } else {
+        console.log(renderDiagnosticsReport(diag));
+      }
+    } catch (err) {
+      console.error(`Impossibile leggere file CSV: ${(err as Error).message}`);
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (command === "serve") {
+    const portIdx = argv.indexOf("-p") !== -1 ? argv.indexOf("-p") : argv.indexOf("--port");
+    const port = portIdx !== -1 && argv[portIdx + 1] ? parseInt(argv[portIdx + 1]!, 10) : 3000;
+    const demoRecords = generateDemoSimulation();
+    const { intervals, summary } = reconcileEnergyFlows(demoRecords, DEFAULT_ARERA_TARIFF);
+    const batterySim = simulateBatteryStorage(intervals, { capacityKWh: 5 }, DEFAULT_ARERA_TARIFF);
+    const html = generateHtmlReport(summary, batterySim);
+
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(html);
+    });
+
+    server.listen(port, () => {
+      console.log(`⚡ EnergyOS Live Dashboard attivo su: http://localhost:${port}`);
+      console.log("Premi Ctrl+C per arrestare il server.");
+    });
+    return;
+  }
+
   if (command === "bands") {
     const inputDateStr = argv[1] ?? new Date().toISOString();
     const d = new Date(inputDateStr);
@@ -139,9 +193,10 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   }
 
   const isDemo = command === "demo";
-  const isCompare = command === "compare" || (!isDemo && argv.includes("-c"));
+  const isBattery = command === "battery";
+  const isCompare = command === "compare" || (!isDemo && !isBattery && argv.includes("-c"));
 
-  if (!isDemo && !isCompare) {
+  if (!isDemo && !isCompare && !isBattery) {
     console.error(`Comando sconosciuto: ${command}. Esegui "energyos --help" per la guida.`);
     process.exit(1);
   }
@@ -149,6 +204,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   const isJson = argv.includes("--json");
   const htmlIdx = argv.indexOf("--html") !== -1 ? argv.indexOf("--html") : argv.indexOf("-o");
   const htmlPath = htmlIdx !== -1 && argv[htmlIdx + 1] ? argv[htmlIdx + 1] : undefined;
+
+  const batteryIdx = argv.indexOf("--battery") !== -1 ? argv.indexOf("--battery") : (isBattery && argv.indexOf("--capacity") !== -1 ? argv.indexOf("--capacity") : argv.indexOf("-b"));
+  const batteryCap = batteryIdx !== -1 && argv[batteryIdx + 1] ? parseFloat(argv[batteryIdx + 1]!) : (isBattery ? 5 : undefined);
 
   let records: AlignedRecord[] = [];
   let tariff: TariffConfig = DEFAULT_ARERA_TARIFF;
@@ -192,10 +250,17 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     process.exit(1);
   }
 
-  const { summary } = reconcileEnergyFlows(records, tariff);
+  const { intervals, summary } = reconcileEnergyFlows(records, tariff);
+
+  let batteryResult = undefined;
+  let sizingOptions = undefined;
+  if (batteryCap && batteryCap > 0) {
+    batteryResult = simulateBatteryStorage(intervals, { capacityKWh: batteryCap }, tariff);
+    sizingOptions = recommendOptimalBatterySizes(intervals, tariff);
+  }
 
   if (htmlPath) {
-    const html = generateHtmlReport(summary);
+    const html = generateHtmlReport(summary, batteryResult);
     writeFileSync(htmlPath, html, "utf-8");
     if (!isJson) {
       console.log(`✓ Report HTML esportato con successo in: ${htmlPath}`);
@@ -203,13 +268,17 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   }
 
   if (isJson) {
-    console.log(JSON.stringify(summary, null, 2));
+    console.log(JSON.stringify({ summary, battery: batteryResult, sizingOptions }, null, 2));
     return;
   }
 
   // 1 in 10 chance of showing discrete sponsor notice
   const showSponsor = Math.random() < 0.1 || argv.includes("--sponsor");
   console.log(renderTerminalReport(summary, showSponsor));
+
+  if (batteryResult) {
+    console.log("\n" + renderBatteryReport(batteryResult, sizingOptions));
+  }
 }
 
 // Auto-run if executed directly

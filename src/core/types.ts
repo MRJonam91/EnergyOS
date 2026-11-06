@@ -15,6 +15,9 @@ export interface TariffConfig {
   bands: Record<string, TariffBand>;
   fixedMonthlyFee?: number;
   powerQuotaMonthlyPerKW?: number;
+  committedPowerKW?: number; // Potenza impegnata (es. 3 kW o 6 kW)
+  systemChargesPerKWh?: number; // Oneri generali di sistema (€/kWh)
+  vatRatePct?: number; // IVA (es. 10%)
 }
 
 export interface RawEnergyRecord {
@@ -105,4 +108,78 @@ export interface EnergyAuditSummary {
   };
   byBand: Record<string, BandAudit>;
   hourlyAverageProfile: HourlyProfilePoint[];
+}
+
+export interface BatteryConfig {
+  capacityKWh: number;
+  maxChargeKW?: number;
+  maxDischargeKW?: number;
+  roundTripEfficiency?: number; // e.g. 0.90 for 90%
+  minSocPct?: number; // e.g. 10%
+  maxSocPct?: number; // e.g. 95%
+  initialSocPct?: number; // e.g. 20%
+}
+
+export interface BatteryIntervalState {
+  timestamp: string;
+  socKWh: number;
+  socPct: number;
+  batteryChargeKWh: number;
+  batteryDischargeKWh: number;
+  residualGridImportKWh: number;
+  residualGridExportKWh: number;
+}
+
+export interface BatterySimulationResult {
+  capacityKWh: number;
+  usableCapacityKWh: number;
+  roundTripEfficiency: number;
+  initialSelfSufficiencyPct: number;
+  simulatedSelfSufficiencyPct: number;
+  initialSelfConsumptionPct: number;
+  simulatedSelfConsumptionPct: number;
+  totalChargedKWh: number;
+  totalDischargedKWh: number;
+  additionalSelfConsumptionKWh: number;
+  avoidedGridImportKWh: number;
+  residualGridImportKWh: number;
+  residualGridExportKWh: number;
+  equivalentFullCycles: number;
+  averageSocPct: number;
+  additionalFinancialSavings: number;
+  totalSimulatedSavings: number;
+  intervals: BatteryIntervalState[];
+}
+
+export interface BatterySizingOption {
+  capacityKWh: number;
+  selfSufficiencyPct: number;
+  selfConsumptionPct: number;
+  annualSavingsEstimate: number;
+  equivalentCyclesPerYear: number;
+  recommended: boolean;
+}
+
+export interface CsvDiagnostics {
+  isValid: boolean;
+  detectedPreset: "generic" | "portale-consumi" | "shelly-em" | "huawei" | "solaredge";
+  delimiter: string;
+  rowCount: number;
+  recognizedColumns: {
+    timestamp: string;
+    consumption?: string;
+    generation?: string;
+  };
+  samplingIntervalMinutes: number;
+  dateRange: {
+    start: string;
+    end: string;
+    durationHours: number;
+  };
+  quality: {
+    missingTimestamps: number;
+    negativeValuesCount: number;
+    zeroGapsCount: number;
+  };
+  warnings: string[];
 }

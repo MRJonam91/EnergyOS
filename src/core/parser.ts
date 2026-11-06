@@ -110,7 +110,7 @@ export function parseCsvContent(csvText: string): Array<Record<string, string>> 
 }
 
 /** Discovers semantic roles from column header names */
-export function identifyColumns(headers: string[]): {
+export function identifyColumns(headers: string[], allowFallback = true): {
   timestampKey: string;
   consumptionKey?: string;
   generationKey?: string;
@@ -123,17 +123,19 @@ export function identifyColumns(headers: string[]): {
     const low = h.toLowerCase();
     if (!timestampKey && (low.includes("time") || low.includes("date") || low.includes("data") || low.includes("giorno") || low === "dt")) {
       timestampKey = h;
-    } else if (!consumptionKey && (low.includes("consum") || low.includes("preliev") || low.includes("load") || low.includes("import") || low === "c_kwh" || low === "kwh_in")) {
-      consumptionKey = h;
     } else if (!generationKey && (low.includes("prod") || low.includes("generat") || low.includes("solar") || low.includes("fotovolt") || low.includes("immess") || low.includes("export") || low === "g_kwh" || low === "pv")) {
       generationKey = h;
+    } else if (!consumptionKey && (low.includes("consum") || low.includes("preliev") || low.includes("load") || low.includes("import") || low.includes("attiva") || low.includes("energy") || low.includes("energia") || low.includes("power") || low === "c_kwh" || low === "kwh_in")) {
+      consumptionKey = h;
     }
   }
 
-  // Fallbacks if not uniquely matched
-  if (!timestampKey && headers.length > 0) timestampKey = headers[0]!;
-  if (!consumptionKey && headers.length > 1) consumptionKey = headers[1]!;
-  if (!generationKey && headers.length > 2) generationKey = headers[2]!;
+  // Fallbacks if not uniquely matched and allowed
+  if (allowFallback) {
+    if (!timestampKey && headers.length > 0) timestampKey = headers[0]!;
+    if (!consumptionKey && headers.length > 1) consumptionKey = headers[1]!;
+    if (!generationKey && headers.length > 2) generationKey = headers[2]!;
+  }
 
   return { timestampKey, consumptionKey, generationKey };
 }

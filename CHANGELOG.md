@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0-alpha] - 2026-11-06
+
+### Added
+- **Battery Storage Simulation & Sizing Engine (`src/core/battery.ts`)**:
+  - Full electrochemical simulation of battery charging from excess solar and discharging during household deficits.
+  - Honors min/max SoC limits, C-rate charge/discharge power limits, and roundtrip efficiency losses ($\eta$).
+  - Computes additional self-consumption, avoided grid imports, equivalent full cycles, and financial delta.
+  - Optimal battery sizing curve (`recommendOptimalBatterySizes`) recommending capacity sweet spots (3 to 20 kWh).
+  - CLI command `energyos battery --capacity <kWh>` and `--battery <kWh>` flag in `compare` and `demo`.
+- **Pre-Flight Telemetry Diagnostics & Validator (`src/core/validator.ts`)**:
+  - Automated detection of Italian Portale Consumi, Shelly EM / 3EM, Huawei FusionSolar, and SolarEdge CSV formats.
+  - Delimiter and timestamp health check, detection of negative values, unparseable lines, and sampling rate.
+  - CLI command `energyos doctor <file.csv>` with terminal diagnosis report or JSON output.
+- **Detailed Italian ARERA Bill Decomposition (`src/core/bill.ts`)**:
+  - Full itemization into: Spesa Materia Energia, Spesa Trasporto e Gestione Contatore (quota fissa + quota potenza), Oneri Generali di Sistema (ASOS/ARIM), Accise con esenzione prima casa/residente, e IVA 10%.
+- **Zero-Dependency Live Preview Server (`energyos serve`)**:
+  - Local HTTP server running on `localhost:3000` via native `node:http`.
+- **Expanded Test Coverage**:
+  - Added 7 new unit tests for battery physics, CSV presets validation, and Italian bill decomposition (total: 20 passing tests).
+
 ## [1.0.0] - 2026-11-06
 
 ### Added
