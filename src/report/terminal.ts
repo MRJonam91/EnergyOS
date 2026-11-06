@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Manoj Rollo (MRJonam91)
 
+import type { CerEvaluationResult } from "../core/cer.ts";
+import type { FlexibilityReport } from "../core/advisor.ts";
+import type { ItalianBillAudit } from "../core/bill.ts";
 import type { BatterySimulationResult, BatterySizingOption, CsvDiagnostics, EnergyAuditSummary } from "../core/types.ts";
 
 /** Generates a visual ASCII/Unicode progress gauge */
@@ -146,6 +149,72 @@ export function renderDiagnosticsReport(diag: CsvDiagnostics): string {
     }
   }
 
+  lines.push("└" + sep + "┘");
+  return lines.join("\n");
+}
+
+/** Renders terminal report for Renewable Energy Community (CER) evaluation */
+export function renderCerReport(cer: CerEvaluationResult): string {
+  const lines: string[] = [];
+  const sep = "─".repeat(68);
+  lines.push("┌" + sep + "┐");
+  lines.push(`│  👥 EnergyOS — Comunità Energetica Rinnovabile (CER) Simulation     │`);
+  lines.push("├" + sep + "┤");
+  lines.push(`│  • Shared Energy (Condivisa):   ${formatKWh(cer.totalSharedEnergyKWh).padStart(12)}`.padEnd(69) + "│");
+  lines.push(`│  • CER Self-Consumption Share:  ${renderGauge(cer.cerSelfConsumptionRatePct, 20).padEnd(41)}│`);
+  lines.push("├" + sep + "┤");
+  lines.push(`│  GSE & ARERA INCENTIVE VALUATION (TIP + TIAC Restituzione)         │`);
+  lines.push(`│  • Total CER Incentive Pool:    +${formatCurrency(cer.totalIncentiveEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│  • Producer Share (Prosumer):   +${formatCurrency(cer.producerIncentiveEur).padStart(10)} (accreditato al produttore)`.padEnd(69) + "│");
+  lines.push(`│  • Consumers Share (Membri):    +${formatCurrency(cer.consumersIncentiveEur).padStart(10)} (distribuito ai consumatori)`.padEnd(69) + "│");
+  lines.push(`│  • CER Management & Operational: +${formatCurrency(cer.cerManagementEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push("└" + sep + "┘");
+  return lines.join("\n");
+}
+
+/** Renders terminal report for Heat Pump & EV load shifting advisor */
+export function renderFlexibilityReport(flex: FlexibilityReport): string {
+  const lines: string[] = [];
+  const sep = "─".repeat(68);
+  lines.push("┌" + sep + "┐");
+  lines.push(`│  💡 EnergyOS — Heat Pump & EV Flexibility & Load Shifting Advisor │`);
+  lines.push(`│  Optimal Solar Surplus Window: ${flex.optimalSolarWindowHours.start}:00 – ${flex.optimalSolarWindowHours.end}:00`.padEnd(69) + "│");
+  lines.push("├" + sep + "┤");
+  lines.push(`│  • Flexible Potential:          ${formatKWh(flex.flexibilityPotentialKWh).padStart(12)} shiftable to solar`.padEnd(69) + "│");
+  lines.push(`│  • Estimated Annual Bill Gain:  +${formatCurrency(flex.estimatedAnnualSavingsEur).padStart(10)} / anno`.padEnd(69) + "│");
+  lines.push("├" + sep + "┤");
+  lines.push("│  RECOMMENDED SCHEDULING ACTIONS:                                   │");
+  for (const act of flex.actions) {
+    lines.push(`│  ▶ ${act.title.slice(0, 64)}`.padEnd(69) + "│");
+    lines.push(`│    Orario: ${act.recommendedTimeWindow} | Delta: +${formatCurrency(act.expectedAnnualSavingsEur)}/anno`.padEnd(69) + "│");
+  }
+  lines.push("└" + sep + "┘");
+  return lines.join("\n");
+}
+
+/** Renders detailed Italian ARERA Bill Decomposition */
+export function renderItalianBillReport(bill: ItalianBillAudit): string {
+  const lines: string[] = [];
+  const sep = "─".repeat(68);
+  lines.push("┌" + sep + "┐");
+  lines.push(`│  🧾 EnergyOS — Decomposizione Bolletta Elettrica ARERA (${bill.periodDays} giorni)   │`);
+  lines.push("├" + sep + "┤");
+  lines.push(`│  1. Spesa Materia Energia:                ${formatCurrency(bill.energyComponent.subtotalEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│     - Quota Consumo Energia:              ${formatCurrency(bill.energyComponent.energyConsumptionEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│     - Quota Fissa Commercializzazione:    ${formatCurrency(bill.energyComponent.commercializationFixedEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│  2. Spesa Trasporto e Gestione Contatore: ${formatCurrency(bill.transportComponent.subtotalEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│     - Quota Fissa Trasporto:              ${formatCurrency(bill.transportComponent.fixedEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│     - Quota Potenza Contatore:            ${formatCurrency(bill.transportComponent.powerQuotaEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│     - Quota Energia Trasporto:            ${formatCurrency(bill.transportComponent.energyTransportEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│  3. Oneri Generali di Sistema (ASOS/ARIM):${formatCurrency(bill.systemChargesComponent.subtotalEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│  4. Imposte (Accise + IVA 10%):           ${formatCurrency(bill.taxesComponent.subtotalEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│     - Accisa Erariale:                    ${formatCurrency(bill.taxesComponent.exciseEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│     - IVA (Imposta Valore Aggiunto):      ${formatCurrency(bill.taxesComponent.vatEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push("├" + sep + "┤");
+  lines.push(`│  • TOTALE BOLLETTA LORDA:                 ${formatCurrency(bill.grossBillEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│  • Accredito Immissione GSE (RID):       -${formatCurrency(bill.feedInCreditEur).padStart(10)}`.padEnd(69) + "│");
+  lines.push(`│  ═══════════════════════════════════════════════════════════════  │`);
+  lines.push(`│  💶 TOTALE NETTO A CARICO:                ${formatCurrency(bill.netBillEur).padStart(10)} (costo eff. €${bill.effectiveCostPerKWhEur.toFixed(3)}/kWh) │`.padEnd(69) + "│");
   lines.push("└" + sep + "┘");
   return lines.join("\n");
 }

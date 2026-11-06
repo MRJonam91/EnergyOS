@@ -46,8 +46,20 @@ npx energyos demo --html report-energetico.html
 # Confronta i file CSV separati di consumo e produzione fotovoltaica
 npx energyos compare -c consumi-contatore.csv -g produzione-inverter.csv
 
-# Esporta report HTML e usa un piano tariffario personalizzato
-npx energyos compare -c consumi.csv -g fotovoltaico.csv -t mie-tariffe.json --html audit.html
+# Simula un sistema di accumulo a batteria da 10 kWh (BSS)
+npx energyos battery --capacity 10 -c consumi.csv -g fotovoltaico.csv
+
+# Simula l'energia condivisa e gli incentivi di una Comunità Energetica (CER)
+npx energyos cer -c consumi.csv -g fotovoltaico.csv
+
+# Advisor di flessibilità: ottimizza pompa di calore e ricarica auto elettrica
+npx energyos advisor -c consumi.csv -g fotovoltaico.csv
+
+# Diagnostica pre-flight e verifica qualità del file CSV
+npx energyos doctor consumi-contatore.csv
+
+# Avvia il server locale di anteprima senza dipendenze
+npx energyos serve --port 3000
 ```
 
 ---
@@ -56,14 +68,12 @@ npx energyos compare -c consumi.csv -g fotovoltaico.csv -t mie-tariffe.json --ht
 
 - **⚡ Motore di allineamento temporale**: Ingestione dati da contatori 2G (e-distribuzione, Portale Consumi ARERA) e inverter solari, con riconoscimento automatico di separatori (`,`, `;`, `\t`) e formattazione numerica europea (`0,28` vs `0.28`).
 - **🕒 Risoluzione fasce ARERA (F1 / F2 / F3)**: Mappatura accurata di F1 (ore di picco Lun-Ven 8-19), F2 (intermedie) e F3 (fuori picco, domeniche e tutte le festività nazionali italiane, inclusa la Pasquetta astronomica).
-- **📐 Calcolo matematico rigoroso**:
-  - Autoconsumo diretto: $SC = \min(G, C)$
-  - Prelievo da rete: $I = \max(0, C - G)$
-  - Immissione in rete (Export): $E = \max(0, G - C)$
-  - Quota di autoconsumo ($\%$) e Grado di autosufficienza ($\%$).
-- **💰 Audit economico della bolletta**: Calcolo della spesa teorica senza fotovoltaico, del costo effettivo residuo e degli incentivi/corrispettivi di immissione (RID GSE).
-- **📊 Report HTML interattivo standalone**: Genera dashboard HTML visualizzabili completamente offline (zero CDN), con grafici vettoriali SVG integrati della curva di carico oraria e del bilancio per fascia.
-- **🔒 Privacy assoluta e Local-First**: Nessun account, nessun dato inviato a server terzi o cloud proprietari.
+- **🔋 Simulatore di Accumulo Elettrochimico (BSS)**: Simula carica e scarica della batteria con limiti C-rate, soglie SoC, rendimento round-trip e curva di dimensionamento consigliato (*sweet spot*).
+- **👥 Comunità Energetiche Rinnovabili (CER)**: Modella l'energia condivisa oraria su cabina primaria e stima il monte incentivi GSE (Tariffa Premio TIP + restituzione TIAC ARERA).
+- **💡 Advisor Flessibilità Pompa di Calore & Auto EV**: Identifica le finestre di massimo surplus fotovoltaico per programmare scaldacqua in PDC (ACS) e colonnine wallbox.
+- **🧾 Decomposizione Dettagliata Bolletta ARERA**: Spesa materia energia, commercializzazione fissa (PCV), quota potenza contatore (€/kW/mese), oneri ASOS/ARIM, franchigia accise residenti e IVA.
+- **📊 Report HTML interattivo & Server Live**: Genera dashboard HTML offline (zero CDN) con grafici SVG della curva di carico, visualizzabili anche su `http://localhost:3000`.
+- **🔒 Privacy assoluta e Local-First**: Nessun dato inviato a server terzi o cloud proprietari.
 - **🌱 Architettura snella e verificabile**: L'intero modulo core è rigorosamente contenuto sotto le **1.500 righe di codice** con test nativi completi.
 
 ---

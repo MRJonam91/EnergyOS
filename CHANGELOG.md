@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0-beta] - 2026-11-06
+
+### Added
+- **Renewable Energy Community (CER) Simulation Engine (`src/core/cer.ts`)**:
+  - Models shared energy flows ($E_{\text{shared}} = \min(\sum \text{inject}, \sum \text{withdraw})$) for primary electrical substations (cabina primaria).
+  - Calculates cumulative GSE TIP tariff incentive and ARERA TIAC transmission tariff restitution.
+  - Automatic quota redistribution between prosumers (solar producers), consumer members, and CER administrative fund.
+  - CLI subcommand `energyos cer` and flag `--cer`.
+- **Heat Pump & EV Load Shifting Advisor (`src/core/advisor.ts`)**:
+  - Flexibility analysis detecting optimal solar surplus windows.
+  - Actionable recommendations for pre-heating Domestic Hot Water (DHW / ACS), delayed appliance cycles, and EV smart wallbox scheduling.
+  - Quantified financial potential from avoiding peak F1/F2 imports.
+  - CLI subcommand `energyos advisor` and flag `--advisor`.
+- **Itemized ARERA Bill Terminal Audit**:
+  - Full breakdown of Spesa Materia Energia, Trasporto (quota fissa + potenza), Oneri di Sistema, Accise e IVA via `energyos bill` / `--bill`.
+- **Interval-level CSV Exporter**:
+  - Option `--export-csv <path>` to export every 15-minute / hourly reconciled interval into standardized RFC 4180 CSV.
+- **Enhanced Interactive Dashboard**:
+  - Updated standalone HTML generator with dedicated CER and Load Shifting cards.
+- **Expanded Test Suite**:
+  - 23 passing native unit tests covering CER incentives, flexibility windows, battery physics, and CSV export.
+
 ## [1.1.0-alpha] - 2026-11-06
 
 ### Added

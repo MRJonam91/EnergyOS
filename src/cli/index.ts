@@ -12,11 +12,21 @@ import { ingestCsvRecords, parseTariffConfig } from "../core/parser.ts";
 import { reconcileEnergyFlows } from "../core/reconciler.ts";
 import { simulateBatteryStorage, recommendOptimalBatterySizes } from "../core/battery.ts";
 import { diagnoseEnergyCsv } from "../core/validator.ts";
-import type { AlignedRecord, TariffConfig } from "../core/types.ts";
+import { evaluateCerIncentives } from "../core/cer.ts";
+import { analyzeFlexibilityOpportunities } from "../core/advisor.ts";
+import { computeItalianBill } from "../core/bill.ts";
+import type { AlignedRecord, ReconciledInterval, TariffConfig } from "../core/types.ts";
 import { generateHtmlReport } from "../report/html.ts";
-import { renderBatteryReport, renderDiagnosticsReport, renderTerminalReport } from "../report/terminal.ts";
+import {
+  renderBatteryReport,
+  renderCerReport,
+  renderDiagnosticsReport,
+  renderFlexibilityReport,
+  renderItalianBillReport,
+  renderTerminalReport
+} from "../report/terminal.ts";
 
-const VERSION = "1.1.0-alpha";
+const VERSION = "1.2.0-beta";
 const SPONSOR_URL = "https://github.com/sponsors/MRJonam91";
 
 function printHelp(): void {
@@ -27,6 +37,9 @@ Open-source, local-first energy intelligence for smart meters and solar PV.
 USAGE:
   energyos compare --consumption <file.csv> [options]
   energyos battery --capacity <kWh> --consumption <file.csv> [options]
+  energyos cer --consumption <file.csv> --generation <file.csv> [options]
+  energyos advisor --consumption <file.csv> --generation <file.csv> [options]
+  energyos bill --consumption <file.csv> [options]
   energyos demo [options]
   energyos doctor <file.csv>
   energyos serve [--port 3000]
@@ -37,6 +50,9 @@ USAGE:
 COMMANDS:
   compare       Reconcile consumption and generation CSV files against ARERA tariffs
   battery       Simulate battery storage (BSS) self-sufficiency & sizing curve
+  cer           Evaluate Renewable Energy Community (CER) shared energy & GSE incentives
+  advisor       Analyze Heat Pump & EV load shifting flexibility opportunities
+  bill          Itemize complete Italian ARERA electricity bill & taxes
   demo          Run a realistic 7-day domestic simulation (6kW PV + heat pump)
   doctor        Pre-flight diagnostics & health check for energy telemetry CSV
   serve         Launch zero-dependency local browser preview server on localhost
@@ -47,17 +63,21 @@ OPTIONS:
   -c, --consumption <path>  Path to consumption CSV (smart meter / 2G meter)
   -g, --generation <path>   Path to solar generation CSV (inverter telemetry)
   -b, --battery <kWh>       Nominal battery storage capacity to simulate
+  --cer                     Include Renewable Energy Community (CER) evaluation
+  --advisor                 Include Heat Pump & EV load shifting advice
+  --bill                    Include detailed ARERA bill breakdown
   -t, --tariff <path>       Path to custom tariff JSON (defaults to ARERA 2026)
   -o, --html <path>         Export interactive standalone HTML report
+  --export-csv <path>       Export reconciled intervals to CSV
   -p, --port <number>       Port for local preview server (default: 3000)
   --json                    Output pure JSON for pipelines and automation
   -h, --help                Show this help message
   -v, --version             Show CLI version
 
 EXAMPLES:
-  energyos compare -c examples/sample-consumption.csv -g examples/sample-generation.csv
+  energyos compare -c examples/sample-consumption.csv -g examples/sample-generation.csv --cer --advisor
   energyos battery --capacity 10 -c examples/sample-consumption.csv -g examples/sample-generation.csv
-  energyos demo --battery 5 --html report.html
+  energyos demo --battery 5 --cer --advisor --html report.html
   energyos doctor examples/sample-consumption.csv
   energyos serve --port 3000
 
@@ -65,6 +85,26 @@ SPONSOR & DONATIONS:
   Independent open-source development: ${SPONSOR_URL}
   Ko-fi: https://ko-fi.com/mrjonam | PayPal: https://paypal.me/manorollo
 `);
+}
+
+/** Exports intervals array to RFC 4180 CSV */
+export function exportIntervalsToCsv(intervals: ReconciledInterval[]): string {
+  const header = "timestamp,band,consumption_kwh,generation_kwh,self_consumption_kwh,grid_import_kwh,grid_export_kwh,import_cost_eur,export_revenue_eur,net_cost_eur";
+  const rows = intervals.map((i) =>
+    [
+      i.timestamp,
+      i.band,
+      i.consumptionKWh.toFixed(3),
+      i.generationKWh.toFixed(3),
+      i.directSelfConsumptionKWh.toFixed(3),
+      i.gridImportKWh.toFixed(3),
+      i.gridExportKWh.toFixed(3),
+      i.importCost.toFixed(3),
+      i.exportRevenue.toFixed(3),
+      i.netCost.toFixed(3)
+    ].join(",")
+  );
+  return [header, ...rows].join("\n");
 }
 
 /** Generates realistic 7-day 15-minute simulation data */
@@ -165,7 +205,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     const demoRecords = generateDemoSimulation();
     const { intervals, summary } = reconcileEnergyFlows(demoRecords, DEFAULT_ARERA_TARIFF);
     const batterySim = simulateBatteryStorage(intervals, { capacityKWh: 5 }, DEFAULT_ARERA_TARIFF);
-    const html = generateHtmlReport(summary, batterySim);
+    const cerResult = evaluateCerIncentives(intervals, 2.0);
+    const flexReport = analyzeFlexibilityOpportunities(summary, intervals);
+    const html = generateHtmlReport(summary, batterySim, cerResult, flexReport);
 
     const server = createServer((_req, res) => {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -194,9 +236,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
 
   const isDemo = command === "demo";
   const isBattery = command === "battery";
-  const isCompare = command === "compare" || (!isDemo && !isBattery && argv.includes("-c"));
+  const isCer = command === "cer" || argv.includes("--cer");
+  const isAdvisor = command === "advisor" || command === "shift" || argv.includes("--advisor");
+  const isBill = command === "bill" || argv.includes("--bill");
+  const isCompare = command === "compare" || (!isDemo && !isBattery && !isCer && !isAdvisor && !isBill && argv.includes("-c"));
 
-  if (!isDemo && !isCompare && !isBattery) {
+  if (!isDemo && !isCompare && !isBattery && !isCer && !isAdvisor && !isBill) {
     console.error(`Comando sconosciuto: ${command}. Esegui "energyos --help" per la guida.`);
     process.exit(1);
   }
@@ -204,6 +249,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   const isJson = argv.includes("--json");
   const htmlIdx = argv.indexOf("--html") !== -1 ? argv.indexOf("--html") : argv.indexOf("-o");
   const htmlPath = htmlIdx !== -1 && argv[htmlIdx + 1] ? argv[htmlIdx + 1] : undefined;
+
+  const exportCsvIdx = argv.indexOf("--export-csv");
+  const exportCsvPath = exportCsvIdx !== -1 && argv[exportCsvIdx + 1] ? argv[exportCsvIdx + 1] : undefined;
 
   const batteryIdx = argv.indexOf("--battery") !== -1 ? argv.indexOf("--battery") : (isBattery && argv.indexOf("--capacity") !== -1 ? argv.indexOf("--capacity") : argv.indexOf("-b"));
   const batteryCap = batteryIdx !== -1 && argv[batteryIdx + 1] ? parseFloat(argv[batteryIdx + 1]!) : (isBattery ? 5 : undefined);
@@ -259,8 +307,31 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     sizingOptions = recommendOptimalBatterySizes(intervals, tariff);
   }
 
+  let cerResult = undefined;
+  if (isCer) {
+    cerResult = evaluateCerIncentives(intervals, 1.8);
+  }
+
+  let flexReport = undefined;
+  if (isAdvisor) {
+    flexReport = analyzeFlexibilityOpportunities(summary, intervals);
+  }
+
+  let billResult = undefined;
+  if (isBill) {
+    billResult = computeItalianBill(summary, tariff);
+  }
+
+  if (exportCsvPath) {
+    const csvContent = exportIntervalsToCsv(intervals);
+    writeFileSync(exportCsvPath, csvContent, "utf-8");
+    if (!isJson) {
+      console.log(`✓ Intervalli riconciliati esportati in CSV: ${exportCsvPath}`);
+    }
+  }
+
   if (htmlPath) {
-    const html = generateHtmlReport(summary, batteryResult);
+    const html = generateHtmlReport(summary, batteryResult, cerResult, flexReport);
     writeFileSync(htmlPath, html, "utf-8");
     if (!isJson) {
       console.log(`✓ Report HTML esportato con successo in: ${htmlPath}`);
@@ -268,7 +339,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   }
 
   if (isJson) {
-    console.log(JSON.stringify({ summary, battery: batteryResult, sizingOptions }, null, 2));
+    console.log(JSON.stringify({ summary, battery: batteryResult, sizingOptions, cer: cerResult, flexibility: flexReport, bill: billResult }, null, 2));
     return;
   }
 
@@ -278,6 +349,18 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
 
   if (batteryResult) {
     console.log("\n" + renderBatteryReport(batteryResult, sizingOptions));
+  }
+
+  if (cerResult) {
+    console.log("\n" + renderCerReport(cerResult));
+  }
+
+  if (flexReport) {
+    console.log("\n" + renderFlexibilityReport(flexReport));
+  }
+
+  if (billResult) {
+    console.log("\n" + renderItalianBillReport(billResult));
   }
 }
 

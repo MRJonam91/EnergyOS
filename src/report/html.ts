@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Manoj Rollo (MRJonam91)
 
+import type { FlexibilityReport } from "../core/advisor.ts";
+import type { CerEvaluationResult } from "../core/cer.ts";
 import type { BatterySimulationResult, EnergyAuditSummary } from "../core/types.ts";
 
 /** Generates responsive SVG for 24-hour profile */
@@ -98,7 +100,9 @@ function renderBandComparisonSvg(byBand: EnergyAuditSummary["byBand"]): string {
 /** Generates complete standalone HTML report */
 export function generateHtmlReport(
   summary: EnergyAuditSummary,
-  batteryResult?: BatterySimulationResult
+  batteryResult?: BatterySimulationResult,
+  cerResult?: CerEvaluationResult,
+  flexReport?: FlexibilityReport
 ): string {
   const profileSvg = renderHourlyProfileSvg(summary.hourlyAverageProfile);
   const bandSvg = renderBandComparisonSvg(summary.byBand);
@@ -121,10 +125,10 @@ export function generateHtmlReport(
 
   const batterySection = batteryResult
     ? `
-    <div class="battery-card">
-      <div class="battery-header">
+    <div class="feature-card battery-card">
+      <div class="feature-header">
         <h2>🔋 Simulazione Sistema di Accumulo (BSS) — ${batteryResult.capacityKWh} kWh</h2>
-        <span class="battery-tag">Autonomia Elettrica Estesa</span>
+        <span class="badge-tag green-tag">Autonomia Elettrica Estesa</span>
       </div>
       <div class="cards-grid" style="margin-top: 1rem;">
         <div class="card">
@@ -151,6 +155,59 @@ export function generateHtmlReport(
     </div>`
     : "";
 
+  const cerSection = cerResult
+    ? `
+    <div class="feature-card cer-card">
+      <div class="feature-header">
+        <h2>👥 Comunità Energetica Rinnovabile (CER) &amp; Autoconsumo Diffuso</h2>
+        <span class="badge-tag indigo-tag">Incentivo TIP GSE + ARERA TIAC</span>
+      </div>
+      <div class="cards-grid" style="margin-top: 1rem;">
+        <div class="card">
+          <div class="card-label">Energia Condivisa (Shared)</div>
+          <div class="card-val val-indigo">${cerResult.totalSharedEnergyKWh.toFixed(1)} kWh</div>
+          <div class="card-sub">${cerResult.cerSelfConsumptionRatePct}% dell'immissione condivisa con la cabina primaria</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Incentivo Totale CER</div>
+          <div class="card-val val-savings">+€${cerResult.totalIncentiveEur.toFixed(2)}</div>
+          <div class="card-sub">Incentivo ventennale cumulabile con il RID</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Quota Produttore (Prosumer)</div>
+          <div class="card-val val-solar">+€${cerResult.producerIncentiveEur.toFixed(2)}</div>
+          <div class="card-sub">Accreditato direttamente all'impianto fotovoltaico</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Ristorno Consumatori (Membri)</div>
+          <div class="card-val val-primary">+€${cerResult.consumersIncentiveEur.toFixed(2)}</div>
+          <div class="card-sub">Condiviso tra i vicini di casa e le attività locali</div>
+        </div>
+      </div>
+    </div>`
+    : "";
+
+  const flexSection = flexReport
+    ? `
+    <div class="feature-card flex-card">
+      <div class="feature-header">
+        <h2>💡 Flessibilità di Carico: Pompa di Calore &amp; Ricarica Auto EV</h2>
+        <span class="badge-tag amber-tag">Finestra Ottimale: ${flexReport.optimalSolarWindowHours.start}:00 – ${flexReport.optimalSolarWindowHours.end}:00</span>
+      </div>
+      <p style="font-size: 0.9rem; color: #4b5563; margin-top: 0.5rem;">
+        Spostando i carichi flessibili nelle ore di surplus solare puoi evitare <strong>${flexReport.flexibilityPotentialKWh} kWh</strong> di prelievi in fascia F1/F2, risparmiando fino a <strong>+€${flexReport.estimatedAnnualSavingsEur.toFixed(2)} all'anno</strong>.
+      </p>
+      <div class="actions-list" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+        ${flexReport.actions.map((act) => `
+          <div class="action-item">
+            <strong>${act.title}</strong> &bull; Orario consigliato: <span class="action-badge">${act.recommendedTimeWindow}</span>
+            <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.25rem;">${act.reason} (Risparmio stimato: +€${act.expectedAnnualSavingsEur}/anno)</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="it">
 <head>
@@ -168,6 +225,7 @@ export function generateHtmlReport(
       --solar: #f59e0b;
       --success: #10b981;
       --danger: #ef4444;
+      --indigo: #6366f1;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -191,10 +249,19 @@ export function generateHtmlReport(
     .val-solar { color: var(--solar); }
     .val-primary { color: var(--primary); }
     .val-success { color: #059669; }
-    .battery-card { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 1.5rem; margin-bottom: 2rem; }
-    .battery-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
-    .battery-header h2 { font-size: 1.25rem; color: #166534; font-weight: 700; }
-    .battery-tag { background: #dcfce7; color: #15803d; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; }
+    .val-indigo { color: var(--indigo); }
+    .feature-card { border-radius: 14px; padding: 1.5rem; margin-bottom: 2rem; }
+    .battery-card { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .cer-card { background: #f5f3ff; border: 1px solid #ddd6fe; }
+    .flex-card { background: #fffbeb; border: 1px solid #fef3c7; }
+    .feature-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+    .feature-header h2 { font-size: 1.25rem; font-weight: 700; color: #1f2937; }
+    .badge-tag { padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; }
+    .green-tag { background: #dcfce7; color: #15803d; }
+    .indigo-tag { background: #e0e7ff; color: #4338ca; }
+    .amber-tag { background: #fef3c7; color: #b45309; }
+    .action-item { background: #ffffff; border: 1px solid #fde68a; border-radius: 8px; padding: 0.85rem; }
+    .action-badge { background: #fef3c7; color: #92400e; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.85rem; }
     .charts-row { display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; margin-bottom: 2rem; }
     @media (max-width: 860px) { .charts-row { grid-template-columns: 1fr; } }
     .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
@@ -255,6 +322,8 @@ export function generateHtmlReport(
     </div>
 
     ${batterySection}
+    ${cerSection}
+    ${flexSection}
 
     <div class="charts-row">
       <div class="chart-card">

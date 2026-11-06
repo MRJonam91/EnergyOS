@@ -3,7 +3,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateDemoSimulation } from "../src/cli/index.ts";
+import { exportIntervalsToCsv, generateDemoSimulation } from "../src/cli/index.ts";
 import { reconcileEnergyFlows } from "../src/core/reconciler.ts";
 import { DEFAULT_ARERA_TARIFF } from "../src/core/constants.ts";
 import { generateHtmlReport } from "../src/report/html.ts";
@@ -35,4 +35,14 @@ test("demo simulation generates valid terminal and HTML reports", () => {
   assert.ok(html.includes("EnergyOS Audit Report"));
   assert.ok(html.includes("<svg"));
   assert.ok(html.includes("Autoconsumo Solare"));
+});
+
+test("exportIntervalsToCsv produces valid RFC 4180 CSV rows", () => {
+  const records = generateDemoSimulation().slice(0, 4);
+  const { intervals } = reconcileEnergyFlows(records, DEFAULT_ARERA_TARIFF);
+
+  const csv = exportIntervalsToCsv(intervals);
+  const lines = csv.split("\n");
+  assert.equal(lines.length, 5); // 1 header + 4 rows
+  assert.ok(lines[0]!.includes("timestamp,band,consumption_kwh"));
 });

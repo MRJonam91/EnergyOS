@@ -46,8 +46,20 @@ npx energyos demo --html energy-audit.html
 # Compare separate consumption and solar generation CSV files
 npx energyos compare -c meter-consumption.csv -g solar-inverter.csv
 
-# Export interactive report and custom tariff JSON
-npx energyos compare -c meter.csv -g solar.csv -t my-tariffs.json --html audit.html
+# Simulate a 10 kWh battery storage system (BSS)
+npx energyos battery --capacity 10 -c meter.csv -g solar.csv
+
+# Evaluate Renewable Energy Community (CER) incentives & shared energy
+npx energyos cer -c meter.csv -g solar.csv
+
+# Heat pump & EV load shifting flexibility advisor
+npx energyos advisor -c meter.csv -g solar.csv
+
+# Run pre-flight telemetry diagnosis on raw CSV
+npx energyos doctor meter-consumption.csv
+
+# Start local zero-dependency preview server
+npx energyos serve --port 3000
 ```
 
 ---
@@ -56,13 +68,11 @@ npx energyos compare -c meter.csv -g solar.csv -t my-tariffs.json --html audit.h
 
 - **⚡ Temporal Alignment Engine**: Ingests smart meter (2G / e-distribuzione / Portale Consumi) and solar PV inverter telemetry, auto-detecting delimiters (`,`, `;`, `\t`) and European decimals (`0,28` vs `0.28`).
 - **🕒 Italian ARERA Multioraria (F1 / F2 / F3)**: Full calendar engine resolving peak (F1), intermediate (F2), and off-peak (F3) hours, including national Italian holidays and Easter Monday (Pasquetta).
-- **📐 Mathematical Accuracy**:
-  - Direct Self-Consumption: $SC = \min(G, C)$
-  - Grid Import: $I = \max(0, C - G)$
-  - Grid Export / Feed-in: $E = \max(0, G - C)$
-  - Self-Consumption Rate ($\%$) and Self-Sufficiency Rate ($\%$).
-- **💰 Financial Bill Auditing**: Computes the counterfactual bill without solar vs actual net costs and feed-in credits (GSE RID).
-- **📊 Standalone Interactive HTML Reports**: Generates zero-CDN, fully offline HTML dashboards featuring embedded responsive SVG energy load curves and band distribution charts.
+- **🔋 Electrochemical Battery Simulation (BSS)**: Simulates storage charging from solar surplus and discharging during deficit with C-rate, SoC limits, efficiency losses, and sizing curve sweet spots.
+- **👥 Renewable Energy Communities (CER)**: Models shared energy ($E_{\text{shared}}$) under the primary substation, computing GSE TIP and ARERA TIAC incentive pools.
+- **💡 Heat Pump & EV Load Shifting Advisor**: Identifies optimal solar surplus windows (e.g. 11:00-15:00) to schedule domestic hot water (DHW / ACS) and EV smart wallbox charging.
+- **🧾 Complete ARERA Bill Itemization**: Decomposes energy costs, fixed commercialization (PCV), network power charges (€/kW/month), ASOS/ARIM system charges, excise tax exemptions, and VAT.
+- **📊 Standalone Interactive HTML Reports & Live Server**: Generates zero-CDN, fully offline HTML dashboards featuring embedded responsive SVG energy load curves, or serve live on localhost.
 - **🔒 Local-First & Privacy-Preserving**: No cloud sync, no tracking, no external APIs. Your private household habits never leave your computer.
 - **🌱 Auditable & Lean Architecture**: The entire core engine is strictly under **1,500 lines of code** with 100% native test coverage.
 
