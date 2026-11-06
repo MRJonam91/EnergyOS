@@ -1,0 +1,23 @@
+{
+  "name": "ARERA Tutela Elettrica Benchmark 2026",
+  "type": "trioraria",
+  "bands": {
+    "F1": {
+      "pricePerKWh": 0.285,
+      "feedInPricePerKWh": 0.105,
+      "description": "Ore di picco (Lun-Ven 08-19)"
+    },
+    "F2": {
+      "pricePerKWh": 0.248,
+      "feedInPricePerKWh": 0.105,
+      "description": "Ore intermedie (Lun-Ven 07-08, 19-23; Sab 07-23)"
+    },
+    "F3": {
+      "pricePerKWh": 0.198,
+      "feedInPricePerKWh": 0.105,
+      "description": "Fuori picco (Lun-Sab 23-07, Domeniche e festivi)"
+    }
+  },
+  "fixedMonthlyFee": 9.50,
+  "powerQuotaMonthlyPerKW": 1.84
+}

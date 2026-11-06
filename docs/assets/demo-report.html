@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EnergyOS Audit Report — ARERA Benchmark 2026</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #2563eb;
+      --solar: #f59e0b;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 2rem 1.5rem;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header { margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; }
+    h1 { font-size: 1.85rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 0.5rem; }
+    .subtitle { color: var(--muted); font-size: 0.95rem; margin-top: 0.25rem; }
+    .tariff-badge { background: #e0e7ff; color: #3730a3; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card-label { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.5rem; }
+    .card-val { font-size: 1.85rem; font-weight: 800; color: #1e293b; }
+    .card-sub { font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; }
+    .val-savings { color: var(--success); }
+    .val-solar { color: var(--solar); }
+    .val-primary { color: var(--primary); }
+    .charts-row { display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; margin-bottom: 2rem; }
+    @media (max-width: 860px) { .charts-row { grid-template-columns: 1fr; } }
+    .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .chart-title { font-size: 1.05rem; font-weight: 700; }
+    .legend { display: flex; gap: 1rem; font-size: 0.8rem; font-weight: 600; color: var(--muted); flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-blue { background: #3b82f6; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+    .dot-red { background: #ef4444; }
+    .chart-svg { width: 100%; height: auto; display: block; }
+    .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 2rem; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.92rem; }
+    th { background: #f1f5f9; padding: 0.85rem 1rem; font-weight: 600; color: #475569; border-bottom: 1px solid var(--border); }
+    td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    .badge-desc { font-size: 0.75rem; color: var(--muted); font-weight: normal; margin-left: 0.35rem; }
+    .savings-text { color: var(--success); font-weight: 700; }
+    footer { text-align: center; font-size: 0.85rem; color: var(--muted); margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+    footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>⚡ EnergyOS Audit Report</h1>
+        <div class="subtitle">Periodo: 2026-05-11 &rarr; 2026-05-17 &bull; 167.8 ore analizzate</div>
+      </div>
+      <div>
+        <span class="tariff-badge">ARERA Benchmark 2026</span>
+      </div>
+    </header>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-label">Autoconsumo Solare</div>
+        <div class="card-val val-solar">25.7%</div>
+        <div class="card-sub">65.0 kWh autoconsumati su 252.5 kWh solari</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Autosufficienza</div>
+        <div class="card-val val-primary">38.2%</div>
+        <div class="card-sub">Quadro consumi coperto dall'energia solare</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Dipendenza dalla Rete</div>
+        <div class="card-val">61.8%</div>
+        <div class="card-sub">105.0 kWh prelevati dalla rete elettrica</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Risparmio Netto Bolletta</div>
+        <div class="card-val val-savings">€36.89</div>
+        <div class="card-sub">-89% rispetto al costo senza fotovoltaico (€41.47)</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Profilo Orario Medio Giornaliero (24h)</div>
+          <div class="legend">
+            <div class="legend-item"><span class="dot dot-blue"></span> Consumo</div>
+            <div class="legend-item"><span class="dot dot-yellow"></span> Produzione Solare</div>
+            <div class="legend-item"><span class="dot dot-green"></span> Autoconsumo</div>
+          </div>
+        </div>
+        
+  <svg viewBox="0 0 760 240" class="chart-svg" xmlns="http://www.w3.org/2000/svg">
+    <line x1="45" y1="205" x2="730" y2="205" stroke="#edf2f7" stroke-dasharray="3,3" /><text x="37" y="209" font-size="10" fill="#a0aec0" text-anchor="end">0.0</text><line x1="45" y1="158.75" x2="730" y2="158.75" stroke="#edf2f7" stroke-dasharray="3,3" /><text x="37" y="162.75" font-size="10" fill="#a0aec0" text-anchor="end">0.4</text><line x1="45" y1="112.5" x2="730" y2="112.5" stroke="#edf2f7" stroke-dasharray="3,3" /><text x="37" y="116.5" font-size="10" fill="#a0aec0" text-anchor="end">0.8</text><line x1="45" y1="66.25" x2="730" y2="66.25" stroke="#edf2f7" stroke-dasharray="3,3" /><text x="37" y="70.25" font-size="10" fill="#a0aec0" text-anchor="end">1.1</text><line x1="45" y1="20" x2="730" y2="20" stroke="#edf2f7" stroke-dasharray="3,3" /><text x="37" y="24" font-size="10" fill="#a0aec0" text-anchor="end">1.5</text>
+    <polygon points="45,205 45.0,205.0 74.8,205.0 104.6,205.0 134.3,205.0 164.1,205.0 193.9,205.0 223.7,205.0 253.5,205.0 283.3,204.1 313.0,185.7 342.8,155.4 372.6,123.6 402.4,95.1 432.2,73.4 462.0,61.1 491.7,59.6 521.5,69.0 551.3,88.4 581.1,115.5 610.9,146.9 640.7,178.3 670.4,201.7 700.2,205.0 730.0,205.0 730,205" fill="rgba(245, 158, 11, 0.15)" />
+    <polyline points="45.0,194.2 74.8,194.4 104.6,193.9 134.3,193.7 164.1,193.7 193.9,193.7 223.7,193.8 253.5,166.2 283.3,166.4 313.0,129.6 342.8,157.6 372.6,194.7 402.4,194.8 432.2,194.7 462.0,139.1 491.7,138.9 521.5,194.2 551.3,194.0 581.1,193.8 610.9,193.7 640.7,193.7 670.4,120.6 700.2,120.7 730.0,120.9" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" />
+    <polyline points="45.0,205.0 74.8,205.0 104.6,205.0 134.3,205.0 164.1,205.0 193.9,205.0 223.7,205.0 253.5,205.0 283.3,204.1 313.0,185.7 342.8,155.4 372.6,123.6 402.4,95.1 432.2,73.4 462.0,61.1 491.7,59.6 521.5,69.0 551.3,88.4 581.1,115.5 610.9,146.9 640.7,178.3 670.4,201.7 700.2,205.0 730.0,205.0" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" />
+    <polyline points="45.0,205.0 74.8,205.0 104.6,205.0 134.3,205.0 164.1,205.0 193.9,205.0 223.7,205.0 253.5,205.0 283.3,204.1 313.0,185.7 342.8,160.7 372.6,194.7 402.4,194.8 432.2,194.7 462.0,139.1 491.7,138.9 521.5,194.2 551.3,194.0 581.1,193.8 610.9,193.7 640.7,193.7 670.4,201.7 700.2,205.0 730.0,205.0" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="4,3" />
+    <text x="45" y="230" font-size="11" fill="#718096" text-anchor="middle">0:00</text><text x="134.3478260869565" y="230" font-size="11" fill="#718096" text-anchor="middle">3:00</text><text x="223.69565217391303" y="230" font-size="11" fill="#718096" text-anchor="middle">6:00</text><text x="313.04347826086956" y="230" font-size="11" fill="#718096" text-anchor="middle">9:00</text><text x="402.39130434782606" y="230" font-size="11" fill="#718096" text-anchor="middle">12:00</text><text x="491.7391304347826" y="230" font-size="11" fill="#718096" text-anchor="middle">15:00</text><text x="581.0869565217391" y="230" font-size="11" fill="#718096" text-anchor="middle">18:00</text><text x="670.4347826086956" y="230" font-size="11" fill="#718096" text-anchor="middle">21:00</text>
+  </svg>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Consumi vs Prelievi per Fascia</div>
+          <div class="legend">
+            <div class="legend-item"><span class="dot dot-blue"></span> Consumo Lordo</div>
+            <div class="legend-item"><span class="dot dot-red"></span> Prelievo Rete</div>
+          </div>
+        </div>
+        
+  <svg viewBox="0 0 500 180" class="chart-svg" xmlns="http://www.w3.org/2000/svg">
+    <line x1="45" y1="150" x2="470" y2="150" stroke="#cbd5e0" />
+    <rect x="81.83333333333333" y="22.49363206321152" width="32" height="127.50636793678848" rx="3" fill="#3b82f6" opacity="0.85"><title>Consumo F3: 56.604 kWh</title></rect><rect x="117.83333333333333" y="43.55772729635598" width="32" height="106.44227270364402" rx="3" fill="#ef4444" opacity="0.85"><title>Prelievo F3: 47.253 kWh</title></rect><rect x="223.5" y="24.511964790074686" width="32" height="125.48803520992531" rx="3" fill="#3b82f6" opacity="0.85"><title>Consumo F2: 55.708 kWh</title></rect><rect x="259.5" y="55.14286704441095" width="32" height="94.85713295558905" rx="3" fill="#ef4444" opacity="0.85"><title>Prelievo F2: 42.11 kWh</title></rect><rect x="365.16666666666663" y="20" width="32" height="130" rx="3" fill="#3b82f6" opacity="0.85"><title>Consumo F1: 57.711 kWh</title></rect><rect x="401.16666666666663" y="114.66340905546602" width="32" height="35.336590944533974" rx="3" fill="#ef4444" opacity="0.85"><title>Prelievo F1: 15.687 kWh</title></rect>
+    <text x="115.83333333333333" y="170" font-size="12" font-weight="600" fill="#4a5568" text-anchor="middle">F3</text><text x="257.5" y="170" font-size="12" font-weight="600" fill="#4a5568" text-anchor="middle">F2</text><text x="399.16666666666663" y="170" font-size="12" font-weight="600" fill="#4a5568" text-anchor="middle">F1</text>
+  </svg>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Fascia ARERA</th>
+            <th>Consumo Lordo</th>
+            <th>Autoconsumo</th>
+            <th>Prelievo da Rete</th>
+            <th>Immissione (Export)</th>
+            <th>Costo Teorico</th>
+            <th>Costo Effettivo</th>
+            <th>Risparmio Diretto</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+    <tr>
+      <td><strong>F3</strong> <span class="badge-desc">Fuori picco (Lun-Sab 23-07; Dom & Festivi)</span></td>
+      <td>56.60 kWh</td>
+      <td>9.35 kWh</td>
+      <td>47.25 kWh</td>
+      <td>26.18 kWh</td>
+      <td>€11.21</td>
+      <td><strong>€6.61</strong></td>
+      <td class="savings-text">+€1.85</td>
+    </tr>
+    <tr>
+      <td><strong>F2</strong> <span class="badge-desc">Intermedia (Lun-Ven 07-08, 19-23; Sab 07-23)</span></td>
+      <td>55.71 kWh</td>
+      <td>13.60 kWh</td>
+      <td>42.11 kWh</td>
+      <td>38.69 kWh</td>
+      <td>€13.82</td>
+      <td><strong>€6.38</strong></td>
+      <td class="savings-text">+€3.37</td>
+    </tr>
+    <tr>
+      <td><strong>F1</strong> <span class="badge-desc">Picco (Lun-Ven 08-19)</span></td>
+      <td>57.71 kWh</td>
+      <td>42.02 kWh</td>
+      <td>15.69 kWh</td>
+      <td>122.66 kWh</td>
+      <td>€16.45</td>
+      <td><strong>€-8.41</strong></td>
+      <td class="savings-text">+€11.98</td>
+    </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer>
+      Generato localmente e privatamente da <a href="https://github.com/MRJonam91/EnergyOS">EnergyOS</a> &bull;
+      Sviluppato da <a href="https://github.com/MRJonam91">Manoj Rollo (MRJonam91)</a> &bull;
+      Nessun dato energetico ha lasciato il tuo computer.
+    </footer>
+  </div>
+</body>
+</html>

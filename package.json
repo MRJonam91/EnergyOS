@@ -1,0 +1,85 @@
+{
+  "name": "energyos",
+  "version": "1.0.0",
+  "description": "Local-first home energy intelligence: reconciles smart meter consumption and solar PV generation CSVs against ARERA multi-hour tariffs (F1/F2/F3) to compute observed costs, self-consumption rates, and true financial savings.",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "author": "Manoj Rollo <fbxmano@gmail.com> (https://github.com/MRJonam91)",
+  "homepage": "https://github.com/MRJonam91/EnergyOS#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MRJonam91/EnergyOS.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MRJonam91/EnergyOS/issues"
+  },
+  "keywords": [
+    "energyos",
+    "solar-energy",
+    "photovoltaic",
+    "autoconsumo",
+    "energy-monitoring",
+    "smart-meter",
+    "fasce-orarie",
+    "arera",
+    "f1-f2-f3",
+    "fotovoltaico",
+    "bolletta-elettrica",
+    "local-first",
+    "privacy-first",
+    "zero-dependencies",
+    "typescript",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "bin": {
+    "energyos": "dist/cli/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README.it.md",
+    "LICENSE",
+    "COMMERCIAL-LICENSE.md",
+    "CLA.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "start": "node dist/cli/index.js",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/MRJonam91"
+    },
+    {
+      "type": "ko-fi",
+      "url": "https://ko-fi.com/mrjonam"
+    },
+    {
+      "type": "buymeacoffee",
+      "url": "https://buymeacoffee.com/mrjonam"
+    },
+    {
+      "type": "paypal",
+      "url": "https://paypal.me/manorollo"
+    }
+  ],
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^5.7.3"
+  }
+}
